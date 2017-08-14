@@ -268,6 +268,22 @@ RemoveApplication(macos_application *Application)
     }
 }
 
+macos_application *FindApplication(char *Name)
+{
+    for(macos_application_map_it It = Applications.begin();
+        It != Applications.end();
+        ++It)
+    {
+        macos_application *Application = It->second;
+        if(StringEquals(Application->Name, Name))
+        {
+            return Application;
+        }
+    }
+
+    return NULL;
+}
+
 internal void
 ClearApplicationCache()
 {

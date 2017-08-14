@@ -27,6 +27,7 @@ void AXLibSetFocusedWindow(AXUIElementRef WindowRef);
 AXUIElementRef AXLibGetFocusedApplication();
 void AXLibSetFocusedApplication(ProcessSerialNumber PSN);
 void AXLibSetFocusedApplication(pid_t PID);
+void AXLibSetFocusedApplication(AXUIElementRef ApplicationRef, ProcessSerialNumber PSN);
 
 char *AXLibGetWindowTitle(AXUIElementRef WindowRef);
 CGPoint AXLibGetWindowPosition(AXUIElementRef WindowRef);

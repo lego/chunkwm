@@ -93,6 +93,25 @@ void AXLibSetFocusedApplication(ProcessSerialNumber PSN)
     SetFrontProcessWithOptions(&PSN, kSetFrontProcessFrontWindowOnly);
 }
 
+void AXLibSetFocusedApplication(AXUIElementRef ApplicationRef, ProcessSerialNumber PSN)
+{
+    AXUIElementRef WindowRef = AXLibGetFocusedWindow(ApplicationRef);
+    SetFrontProcessWithOptions(&PSN, kSetFrontProcessFrontWindowOnly);
+    AXUIElementRef OtherWindowRef = AXLibGetFocusedWindow(ApplicationRef);
+
+    if(WindowRef)
+    {
+        ASSERT(OtherWindowRef);
+        if(!CFEqual(WindowRef, OtherWindowRef))
+        {
+            // NOTE(koekeishiya): What the **** even happens internally when macOS activates a process ?!
+            AXLibSetFocusedWindow(WindowRef);
+        }
+        CFRelease(OtherWindowRef);
+        CFRelease(WindowRef);
+    }
+}
+
 // NOTE(koekeishiya): The process with the given PID will become the frontmost application.
 void AXLibSetFocusedApplication(pid_t PID)
 {

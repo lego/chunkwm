@@ -23,6 +23,7 @@
 
 extern macos_window *GetWindowByID(uint32_t Id);
 extern macos_window *GetFocusedWindow();
+extern macos_application *FindApplication(char *Name);
 extern std::vector<uint32_t> GetAllVisibleWindowsForSpace(macos_space *Space);
 extern std::vector<uint32_t> GetAllVisibleWindowsForSpace(macos_space *Space, bool IncludeInvalidWindows, bool IncludeFloatingWindows);
 extern void CreateWindowTreeForSpace(macos_space *Space, virtual_space *VirtualSpace);
@@ -290,6 +291,16 @@ void CloseWindow(char *Unused)
     }
 }
 
+// TODO(koekeishiya): REMOVE ME; DEBUG BROKEN MACOS PROCESS ACTIVATION STUFF .......
+void FocusApplication(char *Name)
+{
+    macos_application *Application = FindApplication(Name);
+    if(Application)
+    {
+        AXLibSetFocusedApplication(Application->Ref, Application->PSN);
+    }
+}
+
 void FocusWindow(char *Direction)
 {
     bool Success;
@@ -331,7 +342,7 @@ void FocusWindow(char *Direction)
                (FindClosestWindow(Space, VirtualSpace, Window, &ClosestWindow, Direction, WrapMonitor)))
             {
                 AXLibSetFocusedWindow(ClosestWindow->Ref);
-                AXLibSetFocusedApplication(ClosestWindow->Owner->PSN);
+                AXLibSetFocusedApplication(ClosestWindow->Owner->Ref, ClosestWindow->Owner->PSN);
             }
             else if((StringEquals(Direction, "east")) ||
                     (StringEquals(Direction, "next")))
@@ -352,7 +363,7 @@ void FocusWindow(char *Direction)
                (FindClosestWindow(Space, VirtualSpace, Window, &ClosestWindow, Direction, WrapMonitor)))
             {
                 AXLibSetFocusedWindow(ClosestWindow->Ref);
-                AXLibSetFocusedApplication(ClosestWindow->Owner->PSN);
+                AXLibSetFocusedApplication(ClosestWindow->Owner->Ref, ClosestWindow->Owner->PSN);
             }
         }
     }
@@ -420,7 +431,7 @@ void FocusWindow(char *Direction)
                 ASSERT(FocusWindow);
 
                 AXLibSetFocusedWindow(FocusWindow->Ref);
-                AXLibSetFocusedApplication(FocusWindow->Owner->PSN);
+                AXLibSetFocusedApplication(FocusWindow->Owner->Ref, FocusWindow->Owner->PSN);
             }
         }
     }
@@ -1640,7 +1651,7 @@ bool SendWindowToDesktop(macos_window *Window, char *Op)
         if(WindowIds[Index] == Window->Id) continue;
         macos_window *Window = GetWindowByID(WindowIds[Index]);
         AXLibSetFocusedWindow(Window->Ref);
-        AXLibSetFocusedApplication(Window->Owner->PSN);
+        AXLibSetFocusedApplication(Window->Owner->Ref, Window->Owner->PSN);
         break;
     }
 
@@ -1794,7 +1805,7 @@ void SendWindowToMonitor(char *Op)
         if(WindowIds[Index] == Window->Id) continue;
         macos_window *Window = GetWindowByID(WindowIds[Index]);
         AXLibSetFocusedWindow(Window->Ref);
-        AXLibSetFocusedApplication(Window->Owner->PSN);
+        AXLibSetFocusedApplication(Window->Owner->Ref, Window->Owner->PSN);
         break;
     }
 
@@ -1865,7 +1876,7 @@ FocusMonitor(unsigned MonitorId)
 
     Window = GetWindowByID(WindowIds[0]);
     AXLibSetFocusedWindow(Window->Ref);
-    AXLibSetFocusedApplication(Window->Owner->PSN);
+    AXLibSetFocusedApplication(Window->Owner->Ref, Window->Owner->PSN);
     Result = true;
 
 space_free:

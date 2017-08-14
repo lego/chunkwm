@@ -96,6 +96,7 @@ command_func WindowCommandDispatch(char Flag)
 {
     switch(Flag)
     {
+        case 'a': return FocusApplication;      break;
         case 'f': return FocusWindow;           break;
         case 's': return SwapWindow;            break;
         case 'i': return UseInsertionPoint;     break;
@@ -121,10 +122,11 @@ ParseWindowCommand(const char *Message, command *Chain)
 
     int Option;
     bool Success = true;
-    const char *Short = "f:s:i:t:w:W:r:e:d:m:c";
+    const char *Short = "a:f:s:i:t:w:W:r:e:d:m:c";
 
     struct option Long[] =
     {
+        { "focus-application", required_argument, NULL, 'a' },
         { "focus", required_argument, NULL, 'f' },
         { "swap", required_argument, NULL, 's' },
         { "use-insertion-point", required_argument, NULL, 'i' },
@@ -144,6 +146,12 @@ ParseWindowCommand(const char *Message, command *Chain)
     {
         switch(Option)
         {
+            case 'a':
+            {
+                command *Entry = ConstructCommand(Option, optarg);
+                Command->Next = Entry;
+                Command = Entry;
+            } break;
             // NOTE(koekeishiya): The '-f', '-s', '-w' and '-e' flag support the same arguments.
             case 'f':
             case 's':
