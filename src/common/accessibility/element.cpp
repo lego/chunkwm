@@ -102,11 +102,20 @@ void AXLibSetFocusedApplication(AXUIElementRef ApplicationRef, ProcessSerialNumb
     if(WindowRef)
     {
         ASSERT(OtherWindowRef);
-        if(!CFEqual(WindowRef, OtherWindowRef))
+        if(CFEqual(WindowRef, OtherWindowRef))
         {
-            // NOTE(koekeishiya): What the **** even happens internally when macOS activates a process ?!
-            AXLibSetFocusedWindow(WindowRef);
+            printf("\t\tWINDOW REFS WERE EQUAL\n");
         }
+        else
+        {
+            printf("\t\tWINDOW REFS WERE NOT EQUAL\n");
+        }
+
+        // NOTE(koekeishiya): What the **** even happens internally when macOS activates a process ?!
+        // Why does it say that the focused window before and after is EQUAL when they are CLEARLY NOT !!
+        // This can be verified by removing or adding the call to AXLibSetFocusedWindow below.....
+        AXLibSetFocusedWindow(WindowRef);
+
         CFRelease(OtherWindowRef);
         CFRelease(WindowRef);
     }
