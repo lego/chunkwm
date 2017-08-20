@@ -1,5 +1,8 @@
 #pragma once
 
+#include <pthread.h>
+#include <set>
+
 #include "lib/socket.h"
 #include "subscriptions.h"
 
@@ -15,7 +18,12 @@ typedef struct {
   socket_t *conn;
 
   /**
+   * Lock for RW of exposed client data
+   */
+  pthread_mutex_t lock;
+
+  /**
    * List of subscriptions the client has
    */
-  std::vector<subscription_t> subscriptions;
+  std::set<subscription_t> subscriptions;
 } client_t;

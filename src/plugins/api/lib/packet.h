@@ -3,12 +3,13 @@
 #include <iostream>
 
 typedef enum packet_type {
-  REGISTER,
-  TERMINATION,
-  SUBSCRIBE,
-  UNSUBSCRIBE,
-  COMMAND,
-  QUERY,
+  PACKET_REGISTER,
+  PACKET_TERMINATION,
+  PACKET_SUBSCRIBE,
+  PACKET_UNSUBSCRIBE,
+  PACKET_COMMAND,
+  PACKET_QUERY,
+  PACKET_EVENT,
 } packet_type_t;
 
 typedef struct {

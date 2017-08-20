@@ -23,7 +23,7 @@ internal pthread_t api_listener_thread;
 internal socket_t *welcome_socket;
 
 internal volatile bool should_exit = false;
-internal pthread_mutex_t clients_mutex;
+internal pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 internal std::vector<client_t *> clients_connected;
 
 #define PORT 36669
@@ -40,44 +40,68 @@ internal void termination_handler(int sig) {
   Debug("Done termination sequence\n");
 }
 
+internal void sigpipe_handler(int sig) {
+
+}
+
 internal void client_handler(int client_no, client_t *client) {
+  signal(SIGPIPE, sigpipe_handler);
+
   int result;
   packet_t request, response;
+  client->lock = PTHREAD_MUTEX_INITIALIZER;
+  subscription_t subscription;
 
   while (true) {
     result = socket_read(client->conn, &request);
     if (should_exit) return;
     if (result <= 0) {
       Info("Client %d terminated connection\n", client_no);
-      // TODO: handle client release
-      pthread_mutex_lock(&clients_mutex);
-      for (auto it = clients_connected.begin(); it != clients_connected.end(); it++) {
-        if (*it == client)
-          clients_connected.erase(it);
-      }
-      pthread_mutex_unlock(&clients_mutex);
-      Debug("Clients left count=%lu\n", clients_connected.size());
-      socket_destroy(client->conn);
-      delete client;
-      return;
+      break;
     }
 
     std::cerr << client_no << ": got " << request << std::endl;
     switch (request.type) {
-      default:
-        // // return a failure
-        // response.type = LOC_FAILURE;
-        //
-        // result = 1;
-        // response.len = sizeof(result);
-        // response.data = &result;
-        break;
+    case PACKET_REGISTER:
+      client->name = new char[request.len];
+      strncpy(client->name, (char *) request.data, request.len);
+      Debug("Client registered name=%s len=%d\n", client->name, request.len);
+      break;
+    case PACKET_SUBSCRIBE:
+      pthread_mutex_lock(&client->lock);
+      // FIXME: assert validity of subscription enum
+      subscription = *(subscription_t *) request.data;
+      Debug("Client %d subscribed to %d\n", client_no, subscription);
+      client->subscriptions.insert(subscription);
+      pthread_mutex_unlock(&client->lock);
+      break;
+    case PACKET_UNSUBSCRIBE:
+      pthread_mutex_lock(&client->lock);
+      // FIXME: assert validity of subscription enum
+      subscription = *(subscription_t *) request.data;
+      Debug("Client %d unsubscribed from %d\n", client_no, subscription);
+      client->subscriptions.erase(subscription);
+      pthread_mutex_unlock(&client->lock);
+      break;
+    default:
+      Error("Client %d send unknown packet type=%d\n", client_no, request.type);
+      break;
     }
 
     socket_write(client->conn, &response);
   }
 
+  // TODO: handle client release
+  pthread_mutex_lock(&clients_mutex);
+  for (auto it = clients_connected.begin(); it != clients_connected.end(); it++) {
+    if (*it == client)
+      clients_connected.erase(it);
+  }
+  pthread_mutex_unlock(&clients_mutex);
+  Debug("Clients left count=%lu\n", clients_connected.size());
   socket_destroy(client->conn);
+  // FIXME: delete client->name if not null
+  // FIXME: do we need to destroy client->subscriptions
   delete client;
 }
 
@@ -126,6 +150,16 @@ StringsAreEqual(const char *A, const char *B)
     return Result;
 }
 
+internal void send_event(client_t * client, subscription_t event) {
+  packet_t packet;
+  packet.len = 4;
+  packet.type = PACKET_EVENT;
+  int data = event;
+  packet.data = &data;
+  socket_write(client->conn, &packet);
+  // FIXME: handle error
+}
+
 /*
  * NOTE(koekeishiya):
  * parameter: const char *Node
@@ -144,6 +178,20 @@ PLUGIN_MAIN_FUNC(PluginMain)
     else if(StringsAreEqual(Node, "chunkwm_export_application_terminated"))
     {
         macos_application *Application = (macos_application *) Data;
+        return true;
+    }
+    else if(StringsAreEqual(Node, "chunkwm_export_window_created"))
+    {
+        pthread_mutex_lock(&clients_mutex);
+        for (auto it = clients_connected.begin(); it != clients_connected.end(); it++) {
+          client_t *client = *it;
+          pthread_mutex_lock(&client->lock);
+          if (client->subscriptions.find(SUBSCRIPTION_WINDOW_CREATED) != client->subscriptions.end()) {
+            send_event(client, SUBSCRIPTION_WINDOW_CREATED);
+          }
+          pthread_mutex_unlock(&client->lock);
+        }
+        pthread_mutex_unlock(&clients_mutex);
         return true;
     }
 
