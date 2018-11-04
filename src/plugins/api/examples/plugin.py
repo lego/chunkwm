@@ -25,7 +25,7 @@ def _(data):
 @encodify.register(int)
 def _(data):
     INT_SIZE = 4
-    return INT_SIZE, data.to_bytes(INT_SIZE, byteorder='big')
+    return INT_SIZE, data.to_bytes(INT_SIZE, byteorder='little')
 
 class PacketType(Enum):
     REGISTER = 0
@@ -39,6 +39,7 @@ class PacketType(Enum):
 class Subscriptions(Enum):
     WINDOW_CREATED = 0
     WINDOW_DESTROYED = 1
+    WINDOW_FOCUSED = 2
 
 class Packet(object):
     """
@@ -121,8 +122,7 @@ if __name__ == "__main__":
     conn.connect(('localhost', PORT))
     try:
         Register(conn)
-        Subscribe(conn, Subscriptions.WINDOW_CREATED)
-        Unsubscribe(conn, Subscriptions.WINDOW_CREATED)
+        Subscribe(conn, Subscriptions.WINDOW_FOCUSED)
 
         while True:
             event = ReceiveEvent(conn)

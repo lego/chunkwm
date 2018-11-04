@@ -44,7 +44,7 @@ internal void sigpipe_handler(int sig) {
 
 }
 
-internal void client_handler(int client_no, client_t *client) {
+internal void client_handler(client_t *client) {
   signal(SIGPIPE, sigpipe_handler);
 
   int result;
@@ -56,11 +56,11 @@ internal void client_handler(int client_no, client_t *client) {
     result = socket_read(client->conn, &request);
     if (should_exit) return;
     if (result <= 0) {
-      Info("Client %d terminated connection\n", client_no);
+      Info("Client %d terminated connection\n", client->id);
       break;
     }
 
-    std::cerr << client_no << ": got " << request << std::endl;
+    std::cerr << client->id << ": got " << request << std::endl;
     switch (request.type) {
     case PACKET_REGISTER:
       client->name = new char[request.len];
@@ -71,24 +71,25 @@ internal void client_handler(int client_no, client_t *client) {
       pthread_mutex_lock(&client->lock);
       // FIXME: assert validity of subscription enum
       subscription = *(subscription_t *) request.data;
-      Debug("Client %d subscribed to %d\n", client_no, subscription);
+      Debug("Client %d subscribed to %d\n", client->id, subscription);
       client->subscriptions.insert(subscription);
+      if (client->subscriptions.find(SUBSCRIPTION_WINDOW_FOCUSED) != client->subscriptions.end()) {
+        Debug("Sanity check for focused being in at post command");
+      }
       pthread_mutex_unlock(&client->lock);
       break;
     case PACKET_UNSUBSCRIBE:
       pthread_mutex_lock(&client->lock);
       // FIXME: assert validity of subscription enum
       subscription = *(subscription_t *) request.data;
-      Debug("Client %d unsubscribed from %d\n", client_no, subscription);
+      Debug("Client %d unsubscribed from %d\n", client->id, subscription);
       client->subscriptions.erase(subscription);
       pthread_mutex_unlock(&client->lock);
       break;
     default:
-      Error("Client %d send unknown packet type=%d\n", client_no, request.type);
+      Error("Client %d send unknown packet type=%d\n", client->id, request.type);
       break;
     }
-
-    socket_write(client->conn, &response);
   }
 
   // TODO: handle client release
@@ -135,7 +136,8 @@ internal void *api_listener(void *) {
     Info("New client connected: client_id=%d\n", client_no);
     client_t *client = new client_t;
     client->conn = client_socket;
-    std::thread(client_handler, client_no++, client).detach();
+    client->id = client_no++;
+    std::thread(client_handler, client).detach();
     client_socket = new socket_t;
   }
 
@@ -180,14 +182,15 @@ PLUGIN_MAIN_FUNC(PluginMain)
         macos_application *Application = (macos_application *) Data;
         return true;
     }
-    else if(StringsAreEqual(Node, "chunkwm_export_window_created"))
+    else if(StringsAreEqual(Node, "chunkwm_export_window_focused"))
     {
         pthread_mutex_lock(&clients_mutex);
         for (auto it = clients_connected.begin(); it != clients_connected.end(); it++) {
           client_t *client = *it;
           pthread_mutex_lock(&client->lock);
-          if (client->subscriptions.find(SUBSCRIPTION_WINDOW_CREATED) != client->subscriptions.end()) {
-            send_event(client, SUBSCRIPTION_WINDOW_CREATED);
+          if (client->subscriptions.find(SUBSCRIPTION_WINDOW_FOCUSED) != client->subscriptions.end()) {
+            Debug("Sending focused event to client %d", client->id);
+            send_event(client, SUBSCRIPTION_WINDOW_FOCUSED);
           }
           pthread_mutex_unlock(&client->lock);
         }
@@ -229,6 +232,7 @@ chunkwm_plugin_export Subscriptions[] =
     chunkwm_export_application_launched,
     chunkwm_export_window_created,
     chunkwm_export_window_destroyed,
+    chunkwm_export_window_focused,
 };
 CHUNKWM_PLUGIN_SUBSCRIBE(Subscriptions)
 

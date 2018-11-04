@@ -13,6 +13,11 @@ typedef struct {
   char *name;
 
   /**
+   * Unique ID of the client
+   */
+  int id;
+
+  /**
    * Socket connection to the client
    */
   socket_t *conn;
